@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 namespace Mayconbordin\L5StompQueue;
 
@@ -17,171 +17,180 @@ use Mayconbordin\L5StompQueue\Jobs\StompJob;
  */
 class StompQueue extends Queue implements QueueContract
 {
-    const SYSTEM_ACTIVEMQ = "activemq";
+	const SYSTEM_ACTIVEMQ = "activemq";
 
-    /**
-     * The Stomp instance.
-     *
-     * @var Stomp
-     */
-    protected $stomp;
+	/**
+	 * The Stomp instance.
+	 *
+	 * @var Stomp
+	 */
+	protected $stomp;
 
-    /**
-     * The name of the default queue.
-     *
-     * @var string
-     */
-    protected $default;
+	/**
+	 * The name of the default queue.
+	 *
+	 * @var string
+	 */
+	protected $default;
 
-    /**
-     * The system name.
-     *
-     * @var string
-     */
-    protected $system;
+	/**
+	 * The system name.
+	 *
+	 * @var string
+	 */
+	protected $system;
 
-    /**
-     * The Stomp credentials for connection.
-     *
-     * @var array
-     */
-    protected $credentials;
+	/**
+	 * The Stomp credentials for connection.
+	 *
+	 * @var array
+	 */
+	protected $credentials;
 
-    /**
-     * Create a new ActiveMQ queue instance.
-     *
-     * @param Stomp $stomp
-     * @param string $default
-     * @param string|null $system
-     * @param array $credentials [username=string, password=string]
-     */
-    public function __construct(Stomp $stomp, $default, $system = null, array $credentials = [])
-    {
-        $this->stomp       = $stomp;
-        $this->default     = $default;
-        $this->system      = $system;
-        $this->credentials = $credentials;
-    }
+	/**
+	 * The ACK type
+	 *
+	 * @var string
+	 */
+	protected $ackType;
 
-    /**
-     * Push a new job onto the queue.
-     *
-     * @param  string $job
-     * @param  mixed $data
-     * @param  string $queue
-     * @return mixed
-     */
-    public function push($job, $data = '', $queue = null)
-    {
-        return $this->pushRaw($this->createPayload($job, $data), $queue);
-    }
+	/**
+	 * Create a new ActiveMQ queue instance.
+	 *
+	 * @param Stomp       $stomp
+	 * @param string      $default
+	 * @param string|null $system
+	 * @param array       $credentials [username=string, password=string]
+	 */
+	public function __construct(Stomp $stomp, $default, $system = null, array $credentials = [], $ack = '')
+	{
+		$this->stomp = $stomp;
+		$this->default = $default;
+		$this->system = $system;
+		$this->credentials = $credentials;
+		$this->ack = $ack;
+	}
 
-    /**
-     * Push a raw payload onto the queue.
-     *
-     * @param  string $payload
-     * @param  string $queue
-     * @param  array $options
-     * @return mixed
-     */
-    public function pushRaw($payload, $queue = null, array $options = [])
-    {
-        $message = new Message($payload);
-        $this->getStomp()->send($this->getQueue($queue), $message, $options);
-    }
+	/**
+	 * Push a new job onto the queue.
+	 *
+	 * @param  string $job
+	 * @param  mixed  $data
+	 * @param  string $queue
+	 * @return mixed
+	 */
+	public function push($job, $data = '', $queue = null)
+	{
+		return $this->pushRaw($this->createPayload($job, $data), $queue);
+	}
 
-    /**
-     * Push a raw payload onto the queue after encrypting the payload.
-     *
-     * @param  string  $payload
-     * @param  string  $queue
-     * @param  int     $delay
-     * @return mixed
-     */
-    public function recreate($payload, $queue = null, $delay)
-    {
-        return $this->pushRaw($payload, $queue, $this->makeDelayHeader($delay));
-    }
+	/**
+	 * Push a raw payload onto the queue.
+	 *
+	 * @param  string $payload
+	 * @param  string $queue
+	 * @param  array  $options
+	 * @return mixed
+	 */
+	public function pushRaw($payload, $queue = null, array $options = [])
+	{
+		$message = new Message($payload);
+		$this->getStomp()->send($this->getQueue($queue), $message, $options);
+	}
 
-    /**
-     * Push a new job onto the queue after a delay.
-     *
-     * @param  \DateTime|int $delay
-     * @param  string $job
-     * @param  mixed $data
-     * @param  string $queue
-     * @return mixed
-     */
-    public function later($delay, $job, $data = '', $queue = null)
-    {
-        $payload = $this->createPayload($job, $data, $queue);
-        return $this->pushRaw($payload, $queue, $this->makeDelayHeader($delay));
-    }
+	/**
+	 * Push a raw payload onto the queue after encrypting the payload.
+	 *
+	 * @param  string $payload
+	 * @param  string $queue
+	 * @param  int    $delay
+	 * @return mixed
+	 */
+	public function recreate($payload, $queue = null, $delay)
+	{
+		return $this->pushRaw($payload, $queue, $this->makeDelayHeader($delay));
+	}
 
-    /**
-     * Pop the next job off of the queue.
-     *
-     * @param  string $queue
-     * @return StompJob|null
-     */
-    public function pop($queue = null)
-    {
-        $this->getStomp()->subscribe($this->getQueue($queue));
-        $job = $this->getStomp()->read();
+	/**
+	 * Push a new job onto the queue after a delay.
+	 *
+	 * @param  \DateTime|int $delay
+	 * @param  string        $job
+	 * @param  mixed         $data
+	 * @param  string        $queue
+	 * @return mixed
+	 */
+	public function later($delay, $job, $data = '', $queue = null)
+	{
+		$payload = $this->createPayload($job, $data, $queue);
 
-        if (!is_null($job) && ($job instanceof Frame)) {
-            return new StompJob($this->container, $this, $job);
-        }
-    }
+		return $this->pushRaw($payload, $queue, $this->makeDelayHeader($delay));
+	}
 
-    /**
-     * Delete a message from the Stomp queue.
-     *
-     * @param  string  $queue
-     * @param  string|Frame $message
-     * @return void
-     */
-    public function deleteMessage($queue, Frame $message)
-    {
-        $this->getStomp()->ack($message);
-    }
+	/**
+	 * Pop the next job off of the queue.
+	 *
+	 * @param  string $queue
+	 * @return StompJob|null
+	 */
+	public function pop($queue = null)
+	{
+		$this->getStomp()->subscribe($this->getQueue($queue), null, $this->ack);
+		$job = $this->getStomp()->read();
 
-    /**
-     * Get the queue or return the default.
-     *
-     * @param  string|null  $queue
-     * @return string
-     */
-    public function getQueue($queue)
-    {
-        return $queue ?: $this->default;
-    }
+		if (!is_null($job) && ($job instanceof Frame)) {
+			return new StompJob($this->container, $this, $job);
+		}
+	}
 
-    /**
-     * @return Stomp
-     */
-    public function getStomp()
-    {
-        /*
-        if (!$this->stomp->isConnected()) {
-            $this->stomp->connect(Arr::get($this->credentials, 'username', ''), Arr::get($this->credentials, 'password', ''));
-        }
-        */
-        return $this->stomp;
-    }
+	/**
+	 * Delete a message from the Stomp queue.
+	 *
+	 * @param  string       $queue
+	 * @param  string|Frame $message
+	 * @return void
+	 */
+	public function deleteMessage($queue, Frame $message)
+	{
+		$this->getStomp()->ack($message);
+	}
 
-    /**
-     * @param int $delay
-     * @return array
-     */
-    protected function makeDelayHeader($delay)
-    {
-        $delay = $this->getSeconds($delay);
+	/**
+	 * Get the queue or return the default.
+	 *
+	 * @param  string|null $queue
+	 * @return string
+	 */
+	public function getQueue($queue)
+	{
+		return $queue ?: $this->default;
+	}
 
-        if ($this->system == self::SYSTEM_ACTIVEMQ) {
-            return ['AMQ_SCHEDULED_DELAY' => $delay * 1000];
-        } else {
-            return [];
-        }
-    }
+	/**
+	 * @return Stomp
+	 */
+	public function getStomp()
+	{
+		/*
+		if (!$this->stomp->isConnected()) {
+			$this->stomp->connect(Arr::get($this->credentials, 'username', ''), Arr::get($this->credentials, 'password', ''));
+		}
+		*/
+		return $this->stomp;
+	}
+
+	/**
+	 * @param int $delay
+	 * @return array
+	 */
+	protected function makeDelayHeader($delay)
+	{
+		$delay = $this->getSeconds($delay);
+
+		if ($this->system == self::SYSTEM_ACTIVEMQ) {
+			return ['AMQ_SCHEDULED_DELAY' => $delay * 1000];
+		} else {
+			return [];
+		}
+	}
 }

@@ -32,6 +32,6 @@ class StompConnector implements ConnectorInterface
         return new StompQueue($stomp, $config['queue'], Arr::get($config, 'system', null), [
             'username' => Arr::get($config, 'username', ''),
             'password' => Arr::get($config, 'password', '')
-        ]);
+        ], Arr::get($config, 'ack', 'auto'));
     }
 }
